@@ -141,7 +141,7 @@ You can layer advanced features later:
 ### 🔹 Phase 3: Add Multiplayer Support
 
 * [x] Set up a basic WebSocket server (Node.js or Rust)
-* [ ] Implement room management: `join`, `leave`, `broadcast`
+* [x] Implement room management: `join`, `leave`, `broadcast`
 * [x] From raylib (via Emscripten), connect using `emscripten_websocket_*` functions
 * [x] Send/receive JSON messages: `{"type":"move_token","id":5,"x":100,"y":120}`
 
@@ -276,7 +276,7 @@ Follow these steps to set up, compile, and run the RayVTT application.
     ```
 2.  Compile the client using `emcc`. Replace `/path/to/your/emsdk/emcc` with the actual path to your `emcc` executable if it's not in your system's PATH.
     ```bash
-    /home/dell/emsdk/upstream/emscripten/emcc main.c network.c -o index.html -s USE_GLFW=3 -s FULL_ES2=1 -Iraylib/src -Lraylib/raylib -lraylib --preload-file assets/token.png -s ASYNCIFY -s EXPORTED_RUNTIME_METHODS='["allocateUTF8", "UTF8ToString", "stringToUTF8"]', -s EXPORTED_FUNCTIONS='["_network_set_client_id", "_network_on_update_token", "_network_on_add_dice_roll_message", "_network_on_room_joined", "_network_on_room_left", "_network_on_user_joined_room", "_network_on_user_left_room", "_network_on_ready"]
+    /home/dell/emsdk/upstream/emscripten/emcc main.c network.c -o index.html -s USE_GLFW=3 -s FULL_ES2=1 -Iraylib/src -Lraylib/raylib -lraylib --preload-file assets/token.png -s ASYNCIFY -s EXPORTED_RUNTIME_METHODS='["allocateUTF8", "UTF8ToString", "stringToUTF8"]' -s EXPORTED_FUNCTIONS='["_network_set_client_id", "_network_on_update_token", "_network_on_add_chat_message", "_network_on_broadcast", "_network_on_room_joined", "_network_on_room_left", "_network_on_user_joined_room", "_network_on_user_left_room", "_network_on_ready"]'
     ```
     *Note: The output HTML file name (`index.html` in this case) will be overwritten with each compilation. If you need to force a browser cache refresh, consider adding a version number to the output filename (e.g., `-o index_v1.0.html`).*
 
