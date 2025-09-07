@@ -55,6 +55,7 @@ void addRoomLogMessage(const char* message) {
 
 
 // Callback functions for network events
+EMSCRIPTEN_KEEPALIVE
 void network_on_update_token(const char* sender_id, int id, float x, float y) {
     char sender_id_str[64];
     if (sender_id) {
@@ -80,6 +81,7 @@ void network_on_update_token(const char* sender_id, int id, float x, float y) {
     }
 }
 
+EMSCRIPTEN_KEEPALIVE
 void network_on_add_chat_message(const char* sender_id, const char* message) {
     char sender_id_str[64];
     if (sender_id) {
@@ -104,6 +106,7 @@ void network_on_add_chat_message(const char* sender_id, const char* message) {
     }
 }
 
+EMSCRIPTEN_KEEPALIVE
 void network_on_room_joined(const char* room_id) {
     strncpy(current_room_id, room_id, sizeof(current_room_id) - 1);
     current_room_id[sizeof(current_room_id) - 1] = '\0';
@@ -113,6 +116,7 @@ void network_on_room_joined(const char* room_id) {
     addRoomLogMessage(log_msg);
 }
 
+EMSCRIPTEN_KEEPALIVE
 void network_on_room_left() {
     TraceLog(LOG_INFO, "Left room: %s", current_room_id);
     char log_msg[128];
@@ -121,6 +125,7 @@ void network_on_room_left() {
     current_room_id[0] = '\0'; // Clear room ID
 }
 
+EMSCRIPTEN_KEEPALIVE
 void network_on_user_joined_room(const char* user_id) {
     TraceLog(LOG_INFO, "User %s joined room %s", user_id, current_room_id);
     char log_msg[128];
@@ -128,6 +133,7 @@ void network_on_user_joined_room(const char* user_id) {
     addRoomLogMessage(log_msg);
 }
 
+EMSCRIPTEN_KEEPALIVE
 void network_on_user_left_room(const char* user_id) {
     TraceLog(LOG_INFO, "User %s left room %s", user_id, current_room_id);
     char log_msg[128];
@@ -135,10 +141,12 @@ void network_on_user_left_room(const char* user_id) {
     addRoomLogMessage(log_msg);
 }
 
+EMSCRIPTEN_KEEPALIVE
 void network_on_broadcast(const char* sender_id, const char* message) {
     network_on_add_chat_message(sender_id, message);
 }
 
+EMSCRIPTEN_KEEPALIVE
 void network_on_ready() {
     isNetworkReady = true;
     TraceLog(LOG_INFO, "Network is ready to send messages.");

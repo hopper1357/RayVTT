@@ -174,6 +174,7 @@ void network_broadcast(const char* message) {
     network_send(full_message);
 }
 
+EMSCRIPTEN_KEEPALIVE
 void network_set_client_id(const char* new_client_id) {
     strncpy(my_client_id, new_client_id, sizeof(my_client_id) - 1);
     my_client_id[sizeof(my_client_id) - 1] = '\0';
