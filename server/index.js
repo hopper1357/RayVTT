@@ -8,11 +8,11 @@ const rooms = new Map();
 const DEFAULT_ROOM = 'lobby';
 
 // Helper function to broadcast messages within a room
-function broadcastToRoom(roomId, message, senderWs = null) {
+function broadcastToRoom(roomId, message, { excludeWs = null } = {}) {
     const room = rooms.get(roomId);
     if (room) {
         room.forEach(client => {
-            if (client !== senderWs && client.readyState === WebSocket.OPEN) {
+            if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
                 client.send(message);
             }
         });
@@ -54,7 +54,7 @@ wss.on('connection', ws => {
 
     // Send initial state to the newly connected client
     ws.send(JSON.stringify({ type: "init_state", client_id: ws.id, tokens: gameState.tokens }));
-    broadcastToRoom(ws.roomId, JSON.stringify({ type: "user_joined", userId: ws.id }), ws);
+    broadcastToRoom(ws.roomId, JSON.stringify({ type: "user_joined", userId: ws.id }), { excludeWs: ws });
 
 
     ws.on('message', message => {
@@ -101,7 +101,7 @@ wss.on('connection', ws => {
                     console.log(`Assigned new client ID (reconnect_request without client_id): ${ws.id}. Assigned to room: ${ws.roomId}`);
                 }
                 ws.send(JSON.stringify({ type: "init_state", client_id: ws.id, tokens: gameState.tokens }));
-                broadcastToRoom(ws.roomId, JSON.stringify({ type: "user_joined", userId: ws.id }), ws);
+                broadcastToRoom(ws.roomId, JSON.stringify({ type: "user_joined", userId: ws.id }), { excludeWs: ws });
                 return; // Handled reconnect request, exit message handler
             } else if (msg.type === "join_room") {
                 const { roomId } = msg;
@@ -124,7 +124,7 @@ wss.on('connection', ws => {
                 }
                 rooms.get(roomId).add(ws);
                 console.log(`Client ${ws.id} joined room: ${ws.roomId}`);
-                broadcastToRoom(ws.roomId, JSON.stringify({ type: "user_joined", userId: ws.id }), ws);
+                broadcastToRoom(ws.roomId, JSON.stringify({ type: "user_joined", userId: ws.id }), { excludeWs: ws });
                 ws.send(JSON.stringify({ type: "room_joined", roomId: ws.roomId })); // Confirm join
             } else if (msg.type === "leave_room") {
                 if (ws.roomId && rooms.has(ws.roomId)) {
@@ -150,7 +150,7 @@ wss.on('connection', ws => {
                 // Broadcast the updated token to clients in the same room
                 console.log(`Server broadcasting update_token from ${ws.id} in room ${ws.roomId}: id=${id}, x=${x}, y=${y}`);
                 const updateTokenMessage = JSON.stringify({ type: "update_token", sender_id: ws.id, id, x, y });
-                broadcastToRoom(ws.roomId, updateTokenMessage, ws);
+                broadcastToRoom(ws.roomId, updateTokenMessage, { excludeWs: ws });
             } else if (msg.type === "dice_roll") {
                 // Input Validation for dice_roll
                 if (typeof msg.message !== 'string') {
@@ -160,7 +160,7 @@ wss.on('connection', ws => {
                 // Broadcast dice roll to clients in the same room
                 console.log(`Server broadcasting dice_roll from ${ws.id} in room ${ws.roomId}: ${msg.message}`);
                 const diceRollMessage = JSON.stringify({ type: "dice_roll", sender_id: ws.id, message: msg.message });
-                broadcastToRoom(ws.roomId, diceRollMessage, ws);
+                broadcastToRoom(ws.roomId, diceRollMessage);
             } else if (msg.type === "chat_message") {
                 // Input Validation for chat_message
                 if (typeof msg.message !== 'string') {
@@ -170,7 +170,17 @@ wss.on('connection', ws => {
                 // Broadcast chat message to clients in the same room
                 const chatMessage = JSON.stringify({ type: "chat_message", sender_id: ws.id, message: msg.message });
                 console.log(`Server sending chat_message from ${ws.id} in room ${ws.roomId}: ${chatMessage}`);
-                broadcastToRoom(ws.roomId, chatMessage, ws);
+                broadcastToRoom(ws.roomId, chatMessage);
+            } else if (msg.type === "broadcast") {
+                // Input Validation for broadcast
+                if (typeof msg.message !== 'string') {
+                    console.warn("Invalid broadcast data received:", msg);
+                    return;
+                }
+                // Broadcast the message to clients in the same room
+                const broadcastMessage = JSON.stringify({ type: "broadcast", sender_id: ws.id, message: msg.message });
+                console.log(`Server broadcasting message from ${ws.id} in room ${ws.roomId}: ${broadcastMessage}`);
+                broadcastToRoom(ws.roomId, broadcastMessage);
             } else if (msg.type === "ping") {
                 ws.send(JSON.stringify({ type: "pong" }));
             } else {

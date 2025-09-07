@@ -9,7 +9,7 @@
 #include "network.h"
 
 #define MAX_TOKENS 5
-#define MAX_DICE_MESSAGES 5
+#define MAX_CHAT_MESSAGES 10
 #define MAX_ROOM_LOG_MESSAGES 10
 
 // Define a simple Token structure
@@ -26,8 +26,8 @@ int numTokens = 0;
 
 Token* draggedToken = NULL; // Pointer to the token currently being dragged
 
-char diceRollMessages[MAX_DICE_MESSAGES][64];
-volatile int numDiceRollMessages = 0;
+char chatMessages[MAX_CHAT_MESSAGES][128];
+volatile int numChatMessages = 0;
 
 char my_client_id[64]; // Store our own client ID
 // char current_room_id[64]; // Store the current room ID - Defined in network.c
@@ -80,7 +80,7 @@ void network_on_update_token(const char* sender_id, int id, float x, float y) {
     }
 }
 
-void network_on_add_dice_roll_message(const char* sender_id, const char* message) {
+void network_on_add_chat_message(const char* sender_id, const char* message) {
     char sender_id_str[64];
     if (sender_id) {
         strncpy(sender_id_str, sender_id, sizeof(sender_id_str) - 1);
@@ -89,18 +89,18 @@ void network_on_add_dice_roll_message(const char* sender_id, const char* message
         strncpy(sender_id_str, "(null)", sizeof(sender_id_str) - 1);
         sender_id_str[sizeof(sender_id_str) - 1] = '\0';
     }
-    TraceLog(LOG_INFO, "Received dice roll message from %s: %s", sender_id_str, message);
-    if (numDiceRollMessages < MAX_DICE_MESSAGES) {
-        strncpy(diceRollMessages[numDiceRollMessages], message, 63);
-        diceRollMessages[numDiceRollMessages][63] = '\0';
-        numDiceRollMessages++;
+    TraceLog(LOG_INFO, "Received chat message from %s: %s", sender_id_str, message);
+    if (numChatMessages < MAX_CHAT_MESSAGES) {
+        snprintf(chatMessages[numChatMessages], 127, "[%s]: %s", sender_id_str, message);
+        chatMessages[numChatMessages][127] = '\0';
+        numChatMessages++;
     } else {
         // Shift messages up
-        for (int i = 0; i < MAX_DICE_MESSAGES - 1; i++) {
-            strncpy(diceRollMessages[i], diceRollMessages[i+1], 63);
+        for (int i = 0; i < MAX_CHAT_MESSAGES - 1; i++) {
+            strncpy(chatMessages[i], chatMessages[i+1], 127);
         }
-        strncpy(diceRollMessages[MAX_DICE_MESSAGES - 1], message, 63);
-        diceRollMessages[MAX_DICE_MESSAGES - 1][63] = '\0';
+        snprintf(chatMessages[MAX_CHAT_MESSAGES - 1], 127, "[%s]: %s", sender_id_str, message);
+        chatMessages[MAX_CHAT_MESSAGES - 1][127] = '\0';
     }
 }
 
@@ -133,6 +133,10 @@ void network_on_user_left_room(const char* user_id) {
     char log_msg[128];
     sprintf(log_msg, "User %s left", user_id);
     addRoomLogMessage(log_msg);
+}
+
+void network_on_broadcast(const char* sender_id, const char* message) {
+    network_on_add_chat_message(sender_id, message);
 }
 
 void network_on_ready() {
@@ -172,6 +176,15 @@ int main(void)
 
     Rectangle leaveRoomButton = { uiPanel.x + 20 + (uiPanel.width - 40) / 2 + 5, 220, (uiPanel.width - 40) / 2 - 5, 30 };
     const char* leaveRoomText = "Leave";
+
+    // Broadcast UI elements
+    Rectangle broadcastInputBox = { uiPanel.x + 20, 260, uiPanel.width - 40, 30 };
+    char broadcastInputText[128] = "";
+    int broadcastInputTextLength = 0;
+    bool broadcastInputBoxActive = false;
+
+    Rectangle broadcastButton = { uiPanel.x + 20, 300, uiPanel.width - 40, 30 };
+    const char* broadcastButtonText = "Send";
 
 
     InitWindow(screenWidth, screenHeight, "RayVTT");
@@ -243,8 +256,24 @@ int main(void)
                         TraceLog(LOG_WARNING, "Network not ready. Leave room not sent.");
                     }
                 }
+                else if (CheckCollisionPointRec(mousePoint, broadcastInputBox))
+                {
+                    broadcastInputBoxActive = true;
+                }
+                else if (CheckCollisionPointRec(mousePoint, broadcastButton))
+                {
+                    if (isNetworkReady && broadcastInputTextLength > 0) {
+                        network_broadcast(broadcastInputText);
+                        broadcastInputText[0] = '\0';
+                        broadcastInputTextLength = 0;
+                        broadcastInputBoxActive = false;
+                    } else {
+                        TraceLog(LOG_WARNING, "Network not ready or message empty. Broadcast not sent.");
+                    }
+                }
                 else {
                     roomInputBoxActive = false;
+                    broadcastInputBoxActive = false;
                 }
             }
             // Check for game area clicks
@@ -280,6 +309,21 @@ int main(void)
                 if (roomInputTextLength > 0) {
                     roomInputTextLength--;
                     roomInputText[roomInputTextLength] = '\0';
+                }
+            }
+        } else if (broadcastInputBoxActive) {
+            int key = GetCharPressed();
+            while (key > 0) {
+                if ((key >= 32) && (key <= 125) && (broadcastInputTextLength < 127)) {
+                    broadcastInputText[broadcastInputTextLength] = (char)key;
+                    broadcastInputTextLength++;
+                }
+                key = GetCharPressed();
+            }
+            if (IsKeyPressed(KEY_BACKSPACE)) {
+                if (broadcastInputTextLength > 0) {
+                    broadcastInputTextLength--;
+                    broadcastInputText[broadcastInputTextLength] = '\0';
                 }
             }
         }
@@ -364,9 +408,19 @@ int main(void)
         DrawRectangleRec(leaveRoomButton, WHITE);
         DrawText(leaveRoomText, leaveRoomButton.x + 10, leaveRoomButton.y + 10, 20, BLACK);
 
-        // Draw Dice Roll Messages
-        for (int i = 0; i < numDiceRollMessages; i++) {
-            DrawText(diceRollMessages[i], uiPanel.x + 20, 260 + (i * 20), 10, BLACK);
+        // Draw Broadcast UI
+        DrawRectangleRec(broadcastInputBox, WHITE);
+        if (broadcastInputBoxActive) {
+            DrawRectangleLines((int)broadcastInputBox.x, (int)broadcastInputBox.y, (int)broadcastInputBox.width, (int)broadcastInputBox.height, RED);
+        }
+        DrawText(broadcastInputText, (int)broadcastInputBox.x + 5, (int)broadcastInputBox.y + 8, 10, BLACK);
+
+        DrawRectangleRec(broadcastButton, WHITE);
+        DrawText(broadcastButtonText, broadcastButton.x + 10, broadcastButton.y + 10, 20, BLACK);
+
+        // Draw Chat Messages
+        for (int i = 0; i < numChatMessages; i++) {
+            DrawText(chatMessages[i], uiPanel.x + 20, 340 + (i * 15), 10, BLACK);
         }
 
         // Draw Room Log Messages

@@ -92,9 +92,9 @@ EM_JS(void, js_websocket_init_internal, (const char* url_cstr), {
                     _network_on_ready(); // Call network_on_ready after init_state
                 } else if (msg.type === "update_token") {
                     _network_on_update_token(sender_id_ptr, parseInt(msg.id), msg.x, msg.y);
-                } else if (msg.type === "dice_roll") {
+                } else if (msg.type === "dice_roll" || msg.type === "chat_message" || msg.type === "broadcast") {
                     var message_ptr = Module.allocateUTF8(msg.message);
-                    _network_on_add_dice_roll_message(sender_id_ptr, message_ptr);
+                    _network_on_add_chat_message(sender_id_ptr, message_ptr);
                     Module._free(message_ptr);
                 } else if (msg.type === "pong") {
                     lastPongTime = Date.now();
@@ -166,6 +166,12 @@ void network_leave_room() {
     char message[64];
     sprintf(message, "{\"type\":\"leave_room\"}");
     network_send(message);
+}
+
+void network_broadcast(const char* message) {
+    char full_message[256];
+    sprintf(full_message, "{\"type\":\"broadcast\",\"message\":\"%s\"}", message);
+    network_send(full_message);
 }
 
 void network_set_client_id(const char* new_client_id) {

@@ -18,11 +18,13 @@ void network_close();
 // Functions for room management
 void network_join_room(const char* room_id);
 void network_leave_room();
+void network_broadcast(const char* message);
 
 // Callback functions for game logic (to be implemented in main.c or game.c)
 // These will be called by the network module when relevant messages are received
 void network_on_update_token(const char* sender_id, int id, float x, float y);
-void network_on_add_dice_roll_message(const char* sender_id, const char* message);
+void network_on_add_chat_message(const char* sender_id, const char* message);
+void network_on_broadcast(const char* sender_id, const char* message);
 void network_on_room_joined(const char* room_id);
 void network_on_room_left();
 void network_on_user_joined_room(const char* user_id);
